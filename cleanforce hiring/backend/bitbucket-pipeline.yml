@@ -1,0 +1,73 @@
+image: node:10.15.0
+
+definitions:
+  services:  # Service definitions
+  steps:
+    - step: &Test-step
+        name: install and tests
+        script:
+          - npm install
+          # - npm run test
+          - echo "fake test, no test in npm run"
+    - step: &connect-to-ec2-and-deploy
+        name: connect-to-ec2-and-deploy
+        script:
+           - echo "sudo docker run -d -p 80:3088 --name mytest $dockerhub_user/cleanforce:$BITBUCKET_BUILD_NUMBER" >> scriptec2.txt
+           - cat scriptec2.txt
+           - ssh ec2-user@$ec2_address < scriptec2.txt
+          #  - ssh ec2-user@$ec2_address 'sudo docker rmi -f $(sudo docker images -a -q)'
+           - ssh ec2-user@$ec2_address 'docker system prune -a --volumes -f'
+           - ssh ec2-user@$ec2_address 'docker images -a'
+           - ssh ec2-user@$ec2_address 'docker ps -a'
+    - step: &build-push-image 
+        name: build-push-image 
+        script:
+          - docker build -t $dockerhub_user/cleanforce:$BITBUCKET_BUILD_NUMBER .
+          - docker login -u $dockerhub_user -p $dockerhub_pw docker.io
+          - docker push $dockerhub_user/cleanforce:$BITBUCKET_BUILD_NUMBER
+        services:
+          - docker
+    - step: &build-terraform-remote-state
+        name: build-terraform-remote-state
+        image: amazon/aws-cli
+        script:
+          - aws configure set aws_access_key_id $Access_key_ID
+          - aws configure set aws_secret_access_key $Secret_access_key
+          - aws s3api create-bucket --bucket=$terraform_state_s3 --create-bucket-configuration LocationConstraint=ap-southeast-2 || true
+    - step: &Deploy-to-fargate-step
+        name: Deploy to staging
+        image: hashicorp/terraform
+        deployment: staging
+        script:
+          - cd tf-file
+          - sed  -i "2i access_key = \"$Access_key_ID\"" aws.tf
+          - sed  -i "2i secret_key = \"$Secret_access_key\"" aws.tf
+          - sed  -i "1i container_image = \"$dockerhub_user/cleanforce:$BITBUCKET_BUILD_NUMBER\"" terraform.tfvars 
+          - terraform init
+          - terraform apply -auto-approve
+        # trigger: manual
+
+pipelines:
+  branches:
+      develop:
+        - step: *Test-step
+        - step: *build-push-image 
+        - step: *connect-to-ec2-and-deploy
+        # - step:
+        #     <<: *Deploy-to-fargate-step
+        #     deployment: production
+        #     trigger: manual
+      devops/threemay:
+        - step: *Test-step
+        # - step:
+        #     script:
+        #       - echo "test for deploy"
+        # - step: *build-push-image 
+        # - step: *build-terraform-remote-state
+        # - step:
+        #     <<: *Deploy-to-fargate-step
+        #     deployment: test
+        # - step: *connect-to-ec2-and-deploy
+  pull-requests:
+    '**': #this runs as default for any branch not elsewhere defined
+      - step: *Test-step
