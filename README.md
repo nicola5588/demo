@@ -9,7 +9,7 @@ Agile, enthusiastic to learn latest technology
 2+ years IT support engineer experience
 6+ years Audio Visual engineer experience in TV station
 
-The projects I participated as follows:
+# The projects I participated as follows:
 
 Cleanforce hiring project
 
