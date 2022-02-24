@@ -1,0 +1,50 @@
+# This is an example Starter pipeline configuration
+# Use a skeleton to build, test and deploy using manual and parallel steps
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+
+image: node:10.15.0
+definitions:
+  services:
+  steps:
+     - step: &Build
+        name: Build-folder
+        script:
+          - npm install
+          - npm install react-redux
+          - unset CI 
+          - npm run build
+          - ls
+        artifacts:
+          - build/**
+     - step: &create-s3-bucket
+        name: create-s3-bucket
+        image: zenika/terraform-aws-cli
+        script:
+           - cd Terraform/S3
+           #- sed  -i "2i access_key = \"$Access_key_ID\"" main.tf
+           #- sed  -i "2i secret_key = \"$Secret_access_key\"" main.tf
+           - aws configure set aws_access_key_id $Access_key_ID
+           - aws configure set aws_secret_access_key $Secret_access_key
+           - terraform init -input=false
+           - terraform plan -out=create.tfplan
+           - terraform apply -auto-approve
+     - step: &push-file-s3
+        name: push-file-s3
+        image: zenika/terraform-aws-cli
+        script:
+           - ls
+           - cd Terraform
+           #- sed  -i "2i access_key = \"$Access_key_ID\"" main.tf
+           #- sed  -i "2i secret_key = \"$Secret_access_key\"" main.tf
+           - aws configure set aws_access_key_id $Access_key_ID
+           - aws configure set aws_secret_access_key $Secret_access_key
+           - terraform init -input=false
+           - terraform plan -out=create.tfplan
+           - terraform apply -auto-approve         
+pipelines:
+  branches:
+      devops:
+        - step: *Build
+        - step: *create-s3-bucket
+        - step: *push-file-s3
