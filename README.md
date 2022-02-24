@@ -1,7 +1,7 @@
 Cleanforce hiring project
 
-We used Bitbucket pipeline as CI/CD Tools
-
 BypassQ ordering website project
 
-JR email-service Lambda function project
+JR job-web-scraper Lambda function project
+
+I participate several DevOps project, due to the company policy, I cannot upload the files for my lambda project
