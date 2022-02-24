@@ -1,0 +1,10 @@
+name                = "my-project-name"
+environment         = "test"
+availability_zones  = ["ap-southeast-2a","ap-southeast-2b"]
+private_subnets     = ["10.0.0.0/20", "10.0.32.0/20"]
+public_subnets      = ["10.0.16.0/20", "10.0.48.0/20"]
+# tsl_certificate_arn = "mycertificatearn"
+container_memory    = 512
+# container_image     = "threemay/cleanforce:latest"
+health_check_path = "/api/health"
+container_port = 3088
