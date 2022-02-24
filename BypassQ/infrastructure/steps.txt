@@ -1,0 +1,17 @@
+Steps for Creating the CloudFormation Stack for byPassQ Backend Deployment
+
+1. Manual Step -  This is for storing the image url for creating task definition
+   a. Dockerise the NodeJs app locally
+   b. Create Repository on ECR (using CLI or Management Console)
+   c. Build and Push the docker image to ECR 
+
+2. Create Stack for VPC, Subnets and basic network configurations
+
+3. Create Stack for IAM Role (EscTaskDefinition Role)
+
+4. Create Stack for ECS Cluster, Load Balancer and Cloudwatch log groups
+
+5. Create Stack for task/services for running ECS + FARGATE
+
+- Outputs used for exporting variables for other stacks to use
+- Groups resources by order and dependencies
