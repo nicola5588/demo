@@ -1,0 +1,237 @@
+pipeline {
+
+    agent any
+
+    tools{
+        terraform 'Terraform'
+
+    }
+
+    stages {
+  /*  
+    def image
+    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASSWD')]) {
+        image = "${USER}/cleanforce:${currentBuild.number}"
+    }
+
+    def pem(String pem)
+    environment {
+        pem = credentials('pem')
+    }
+*/
+
+    stage ('Build') {
+
+            agent {
+
+    docker {
+        image "node:16"
+    }
+    }
+        steps {
+
+            sh "npm install"
+            sh "npm install react-redux"
+            sh "npm run build"
+            sh "ls -a"
+        }
+    }
+
+
+    stage ('create S3 bucket') {
+
+        agent {
+            dockerfile {
+                filename 'Dockerfile'
+            }
+        }
+
+
+        steps {
+            withCredentials([
+                    usernamePassword(credentialsId: 'aws_devops', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir('Terraform/S3'){
+                        withEnv(["AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}", "AWS_REGION=ap-southeast-2"]) {  
+                            sh "terraform destroy -auto-approve"
+                            sh "terraform init -input=false"
+                            sh "terraform plan -out=create.tfplan"
+                            sh "terraform apply -auto-approve"
+                        } 
+                    }
+
+                  
+            
+            
+            
+            }
+        }
+    }
+
+    stage ('deploy') {
+        
+        agent {
+            dockerfile {
+                filename 'Dockerfile'
+            }
+        }
+    
+            steps {
+            withCredentials([
+                    usernamePassword(credentialsId: 'aws_devops', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                
+                dir('Terraform'){
+                        withEnv(["AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}", "AWS_REGION=ap-southeast-2"]) {  
+                            sh "terraform destroy -auto-approve"
+                            sh "terraform init -input=false"
+                            sh "terraform plan -out=create.tfplan"
+                            sh "terraform apply -auto-approve"
+                        } 
+                    }
+                }
+            }
+    }
+
+/*    
+    stage('Build docker image') {
+        steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASSWD')]) {
+            sh "docker build -t ${USER}/cleanforce:latest ."
+        }
+        }
+    }
+*/
+
+/*
+    stage ('TF Apply') {
+        steps {
+            sh 'terraform apply'
+        }
+    }
+ */
+
+
+ /*
+    stage('Push Docker image') {
+        steps {
+
+
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASSWD')]) {
+                    
+                        sh "docker login --username ${USER} --password ${PASSWD}"
+                        sh "docker push ${USER}/cleanforce:latest"
+                        
+                    }
+                
+            
+        }
+    }
+        
+    stage("Terraform Init") {
+            
+            steps {                
+
+                withCredentials([
+                    usernamePassword(credentialsId: 'aws-key', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')/*,
+                    file(credentialsId: 'pem', variable: 'FILE'),
+                    usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASSWD')
+                ]) {
+                        
+                    dir('Terraform'){
+                        withEnv(["AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}", "AWS_REGION=ap-southeast-2"]) {  
+                            sh "terraform init -input=false"
+                            sh "terraform plan -no-color -out=create.tfplan"
+                        } 
+            }
+            }
+        }
+    }
+        stage ('Terraform destroy and Apply, and frnotend deploy') {
+            steps {                
+
+                withCredentials([
+                    usernamePassword(credentialsId: 'aws-key', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')/*,
+                    file(credentialsId: 'pem', variable: 'FILE'),
+                    usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'USER', passwordVariable: 'PASSWD')
+                ]) {
+                        
+                dir('Terraform'){
+                sh "terraform destroy -no-color -auto-approve"
+                sh "terraform apply -no-color -auto-approve"
+            }
+        }
+    }
+    }
+
+*/
+/*        
+        stage("Integration test to test environment") {
+            steps{
+                echo 'smokeTest'
+
+                script {
+                    String test_url = "ec2-13-239-12-60.ap-southeast-2.compute.amazonaws.com:8080"
+                    int status = sh(script: "curl -sLI -w '%{http_code}' $test_url -o .dev.null", returnStdout: true)
+                    if (status != 200 && status != 201) {
+                        echo "Returned status code =$status when calling $test_url"
+                    }
+                }
+            }
+        }
+*/        
+    
+/*
+    if (env.BRANCH_NAME == 'devops-staging') {
+
+            stage("Deploy to staging environment") {
+            deployToEB('staging')
+        }
+        
+        stage("Integration test to staging environment") {  
+            smokeTest('staging')
+        }
+    }
+
+    if (env.BRANCH_NAME == 'devops-production') {    
+        stage("Deploy to production environment") {
+            deployToEB('production')
+        }
+
+    }
+*/
+
+/*
+def smokeTest(environment) {     
+    container('EC2') {
+        String test_url = "ec2-13-239-12-60.ap-southeast-2.compute.amazonaws.com:8080"
+        int status = sh(script: "curl -sLI -w '%{http_code}' $test_url -o .dev.null", returnStdout: true)
+        if (status != 200 && status != 201) {
+            error("Returned status code =$status when calling $test_url")
+        }
+
+       
+    }
+}
+
+def deployToEC2(environment) {
+    checkout scm
+    withCredentials([usernamePassword(credentialsId: 'aws-key', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            container('EC2') {
+                withEnv(["AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}", "AWS_REGION=ap-southeast-2"]) {
+                    dir("deployment") {
+                    sh "ssh -i ${pem} ec2-user@ec2-13-239-12-60.ap-southeast-2.compute.amazonaws.com"
+                    sh "sudo yum update -y"
+                    sh "sudo yum install docker"
+                    sh "sudo docker pull ${image}"
+                    sh "sudo docker run -d -p 8080:3000 --name testing ${image}"
+                    }
+                }
+            }
+    }
+}
+
+*/
+}
+}
